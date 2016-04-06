@@ -71,7 +71,7 @@ public class Audio_Record extends Activity {
         enableButton(R.id.btnStop, isRecording);
     }
 
-    int BufferElements2Rec = 1024; // want to play 2048 (2K) since 2 bytes we use only 1024
+    int BufferElements2Rec = 1024*2; // want to play 2048 (2K) since 2 bytes we use only 1024
     int BytesPerElement = 2; // 2 bytes in 16bit format
 
     private void startRecording() {
@@ -129,8 +129,14 @@ public class Audio_Record extends Activity {
                     @Override
                     public void run() {
                         new calcPTP().execute();
+                        try {
+                        Thread.sleep(10);
+                        } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     }
                 });
+
 
             }
             /*try {
@@ -265,7 +271,7 @@ public class Audio_Record extends Activity {
             int ptpCount = 0;
             boolean peakTroughFlag = false;
             double Ptp = 0;
-            double[] PtPvals = new double[10];
+            double[] PtPvals = new double[30];
             for (int i = 5; i < shortArr.length - 5; i++) {
                 // Look for troughs
                 if (!peakTroughFlag) {
@@ -289,15 +295,11 @@ public class Audio_Record extends Activity {
 
 
                         // This will have to be removed for a heart beat signal
-                        if (ptpCount == 2) { // found 10 values, average values, reset ptpCount
+                        if (ptpCount == 30) { // found 10 values, average values, reset ptpCount
                             Ptp = calculateAverage(PtPvals);
                             publishProgress(Ptp);
                             ptpCount = 0;
-                            try {
-                                Thread.sleep(10);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
+
 
                         }
 
@@ -311,7 +313,7 @@ public class Audio_Record extends Activity {
 
         @Override
         protected void onProgressUpdate(Double... values) {
-            textBox.setText(String.valueOf(values[0]));
+            textBox.setText(String.valueOf((int)((double)(values[0]))));
         }
 
         @Override

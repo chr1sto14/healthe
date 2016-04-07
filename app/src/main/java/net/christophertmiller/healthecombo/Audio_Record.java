@@ -21,11 +21,12 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
 public class Audio_Record extends Activity {
-    private static final int RECORDER_SAMPLERATE = 22050;
+    private static final int RECORDER_SAMPLERATE = 8000;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
 
@@ -44,34 +45,30 @@ public class Audio_Record extends Activity {
         setContentView(R.layout.activity_audio__record);
 
         setButtonHandlers();
-        enableButtons(false);
+        //enableButtons(false);
 
         int bufferSize = AudioRecord.getMinBufferSize(RECORDER_SAMPLERATE,
                 RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
 
 
         // set textbox
-        textBox = (TextView) findViewById(R.id.textPtP);
+        textBox = (TextView) findViewById(R.id.textPtp);
 
     }
 
     private void setButtonHandlers() {
-        ((Button) findViewById(R.id.btnStart)).setOnClickListener(btnClick);
-        ((Button) findViewById(R.id.btnStop)).setOnClickListener(btnClick);
-        ((Button) findViewById(R.id.btnPlay)).setOnClickListener(btnClick);
-        ((Button) findViewById(R.id.btnPtP)).setOnClickListener(btnClick);
+        ((ImageView) findViewById(R.id.btnStart)).setOnClickListener(btnClick);
     }
 
-    private void enableButton(int id, boolean isEnable) {
-        ((Button) findViewById(id)).setEnabled(isEnable);
-    }
+   /* private void enableButton(int id, boolean isEnable) {
+        ((ImageView) findViewById(id)).setEnabled(isEnable);
+    }*/
 
-    private void enableButtons(boolean isRecording) {
+/*    private void enableButtons(boolean isRecording) {
         enableButton(R.id.btnStart, !isRecording);
-        enableButton(R.id.btnStop, isRecording);
-    }
+    }*/
 
-    int BufferElements2Rec = RECORDER_SAMPLERATE; // want to play 2048 (2K) since 2 bytes we use only 1024
+    int BufferElements2Rec = RECORDER_SAMPLERATE*2; // want to play 2048 (2K) since 2 bytes we use only 1024
     int BytesPerElement = 2; // 2 bytes in 16bit format
 
     private void startRecording() {
@@ -86,7 +83,7 @@ public class Audio_Record extends Activity {
         recordingThread.start();
     }
 
-   /* //convert short to byte
+/*    //convert short to byte
     private byte[] short2byte(short[] sData) {
         int shortArrsize = sData.length;
         byte[] bytes = new byte[shortArrsize * 2];
@@ -110,7 +107,7 @@ public class Audio_Record extends Activity {
             //String filePath = "/sdcard/voice8K16bitmono.pcm";
             sData = new short[BufferElements2Rec];
 
-           /* FileOutputStream os = null;
+/*            FileOutputStream os = null;
             try {
                 os = new FileOutputStream(filePath);
             } catch (FileNotFoundException e) {
@@ -124,8 +121,12 @@ public class Audio_Record extends Activity {
                 //System.out.println("Short writing to file " + sData.toString());
                 // // writes the data to file from buffer
                 // // stores the voice buffer
-                //byte bData[] = short2byte(sData);
-                //os.write(bData, 0, BufferElements2Rec * BytesPerElement);
+/*                byte bData[] = short2byte(sData);
+                try {
+                    os.write(bData, 0, BufferElements2Rec * BytesPerElement);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }*/
 
                 // update the UI
                 sDataShort = new soundTransferParams(sData);
@@ -134,17 +135,17 @@ public class Audio_Record extends Activity {
                     @Override
                     public void run() {
                         new calcPTP().execute(sDataShort);
-                        try {
-                        Thread.sleep(10);
-                        } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
                     }
                 });
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
 
 
             }
-            /*try {
+/*            try {
                 os.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -176,100 +177,7 @@ public class Audio_Record extends Activity {
     }
 
 
-   private void onPush() {
-        if (mStartPlaying) {
-            int intSize = android.media.AudioTrack.getMinBufferSize(RECORDER_SAMPLERATE, AudioFormat.CHANNEL_OUT_MONO,AudioFormat.ENCODING_PCM_16BIT);
-            at = new AudioTrack(AudioManager.STREAM_MUSIC, RECORDER_SAMPLERATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT, intSize, AudioTrack.MODE_STREAM);
-
-            at.play();
-            playingThread = new Thread(new Runnable() {
-                public void run() {
-                    startPlaying();
-                }
-            }, "AudioPlayer Thread");
-            playingThread.start();
-
-        } else {
-            stopPlaying();
-        }
-    }
-
-    // ----PLAYBACK---------
-    private void startPlaying() {
-
-        //Reading the file..
-        byte[] byteData = null;
-        File file = null;
-        file = new File("/sdcard/voice8K16bitmono.pcm"); // for ex. path= "/sdcard/samplesound.pcm" or "/sdcard/samplesound.wav"
-        byteData = new byte[(int) file.length()];
-        FileInputStream in = null;
-        try {
-            in = new FileInputStream(file);
-            in.read(byteData, 0, (int) file.length());
-            in.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        short shortArr[] = new short[byteData.length/2];
-
-        // short value output file
-        File file1 = null;
-        file1 = new File("/sdcard/graphMe.txt");
-        PrintWriter writer = null;
-        try {
-            writer = new PrintWriter(file1);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        for ( int index = 0; index < byteData.length; index=index+2) {
-            ByteBuffer bb = ByteBuffer.allocate(2);
-            bb.order(ByteOrder.LITTLE_ENDIAN);
-            bb.put(byteData[index]);
-            bb.put(byteData[index + 1]);
-            shortArr[index/2]=bb.getShort(0);
-            //System.out.println("Byte -> short: " + shortArr[index/2]);
-
-            //Write the short value to file
-            writer.println(shortArr[index/2]);
-        }
-
-        writer.close();
-
-
-        // Set and push to audio track..
-        while (mStartPlaying) {
-            if (at != null) {
-
-                // Write the byte array to the track
-                at.write(byteData, 0, byteData.length);
-
-            } else {
-                Log.d("TCAudio", "audio track is not initialised ");
-            }
-
-
-        }
-    }
-
-    private void stopPlaying() {
-        if (at != null) {
-            mStartPlaying = false;
-            at.stop();
-            at.release();
-            at = null;
-            playingThread = null;
-
-
-
-        }
-    }
-
-
-    class calcPTP extends  AsyncTask<soundTransferParams,Double,Void> {
+    class calcPTP extends  AsyncTask<soundTransferParams,Float,Void> {
 
         //public calcPTP()
 
@@ -285,6 +193,26 @@ public class Audio_Record extends Activity {
             // ++++ Search for peaks and troughs in shortArr. ++++
 
             shortArr = params[0].returnArray();
+            int numSamples = shortArr.length;
+            int numPeaks = 0;
+
+
+
+
+            for (int i = 5; i < numSamples - 5; i++) {
+                // value > 5 values to left && value > 5 values to right
+                if (((shortArr[i] > shortArr[i - 1]) && (shortArr[i] > shortArr[i - 2]) &&
+                        (shortArr[i] > shortArr[i - 3]) && (shortArr[i] > shortArr[i - 4]) && (shortArr[i] > shortArr[i - 5])) &&
+                        ((shortArr[i] > shortArr[i + 1]) && (shortArr[i] > shortArr[i + 2]) &&
+                                (shortArr[i] > shortArr[i + 3]) && (shortArr[i] > shortArr[i + 4]) && (shortArr[i] > shortArr[i + 5]))) {
+                    numPeaks++;
+                }
+            }
+
+            float numSecondsRecorded = (float)numSamples / (float)RECORDER_SAMPLERATE;
+            float frequency = numPeaks/numSecondsRecorded;
+            publishProgress(frequency);
+            /*
             short localMin = 0;
             short localMax = 0;
             int ptpCount = 0;
@@ -292,8 +220,6 @@ public class Audio_Record extends Activity {
             double Ptp = 0;
             double[] PtPvals = new double[30];
 
-
-            /*
             for (int i = 5; i < shortArr.length - 5; i++) {
                 // Look for troughs
                 if (!peakTroughFlag) {
@@ -334,8 +260,8 @@ public class Audio_Record extends Activity {
         }
 
         @Override
-        protected void onProgressUpdate(Double... values) {
-            textBox.setText(String.valueOf((int)((double)(values[0]))));
+        protected void onProgressUpdate(Float... values) {
+            textBox.setText(String.valueOf((int)((float)(values[0]))));
         }
 
         @Override
@@ -359,35 +285,18 @@ public class Audio_Record extends Activity {
         public void onClick(View v) {
             switch (v.getId()) {
                 case R.id.btnStart: {
-                    if (mStartPlaying) { break; }
-                    enableButtons(true);
-                    Toast.makeText(getApplicationContext(), "Recording raw audio.", Toast.LENGTH_SHORT).show();
-                    startRecording();
-                    break;
-                }
-                case R.id.btnStop: {
-                    if (mStartPlaying) { break; }
-                    enableButtons(false);
-                    Toast.makeText(getApplicationContext(), "Audio saved.", Toast.LENGTH_SHORT).show();
-                    stopRecording();
-                    break;
-                }
-                case R.id.btnPlay: {
-                    if (!mStartPlaying) {
-                        Toast.makeText(getApplicationContext(), "Playing raw audio.", Toast.LENGTH_SHORT).show();
-                        ((Button) findViewById(R.id.btnPlay)).setText("Stop playing");
+                    if (!isRecording) {
+                        //enableButtons(true);
+                        Toast.makeText(getApplicationContext(), "Recording raw audio.", Toast.LENGTH_SHORT).show();
+                        startRecording();
+                        break;
                     } else {
-                        Toast.makeText(getApplicationContext(), "Stopped playing raw audio.", Toast.LENGTH_SHORT).show();
-                        ((Button) findViewById(R.id.btnPlay)).setText("Start playing");
+                        //enableButtons(false);
+                        Toast.makeText(getApplicationContext(), "Audio saved.", Toast.LENGTH_SHORT).show();
+                        stopRecording();
+                        break;
                     }
-                    mStartPlaying  = !mStartPlaying;
-                    onPush();
 
-                    break;
-                }
-                case R.id.btnPtP: {
-                    if (mStartPlaying || isRecording) { break; }
-                    new calcPTP().execute();
                 }
             }
         }

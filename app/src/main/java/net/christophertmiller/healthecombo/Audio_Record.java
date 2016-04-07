@@ -28,7 +28,7 @@ public class Audio_Record extends Activity {
     private static final int RECORDER_SAMPLERATE = 22050;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-    private short[] sData = null;
+
     private AudioRecord recorder = null;
     private AudioTrack at = null;
     private Thread recordingThread = null;
@@ -71,7 +71,7 @@ public class Audio_Record extends Activity {
         enableButton(R.id.btnStop, isRecording);
     }
 
-    int BufferElements2Rec = 1024*2; // want to play 2048 (2K) since 2 bytes we use only 1024
+    int BufferElements2Rec = RECORDER_SAMPLERATE; // want to play 2048 (2K) since 2 bytes we use only 1024
     int BytesPerElement = 2; // 2 bytes in 16bit format
 
     private void startRecording() {
@@ -86,7 +86,7 @@ public class Audio_Record extends Activity {
         recordingThread.start();
     }
 
-    //convert short to byte
+   /* //convert short to byte
     private byte[] short2byte(short[] sData) {
         int shortArrsize = sData.length;
         byte[] bytes = new byte[shortArrsize * 2];
@@ -97,9 +97,12 @@ public class Audio_Record extends Activity {
         }
         return bytes;
 
-    }
+    }*/
 
     private class writeAudioDataToFile implements Runnable {
+
+        private short[] sData = null;
+        private soundTransferParams sDataShort;
         @Override
         public void run() {
             // Write the output audio in byte
@@ -125,10 +128,12 @@ public class Audio_Record extends Activity {
                 //os.write(bData, 0, BufferElements2Rec * BytesPerElement);
 
                 // update the UI
+                sDataShort = new soundTransferParams(sData);
+
                 Audio_Record.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        new calcPTP().execute();
+                        new calcPTP().execute(sDataShort);
                         try {
                         Thread.sleep(10);
                         } catch (InterruptedException e) {
@@ -144,6 +149,18 @@ public class Audio_Record extends Activity {
             } catch (IOException e) {
                 e.printStackTrace();
             }*/
+        }
+    }
+
+    private static class soundTransferParams {
+        short[] myArrayShort;
+
+        soundTransferParams(short[] inputArray) {
+            this.myArrayShort = inputArray;
+        }
+
+        public short[] returnArray() {
+            return this.myArrayShort;
         }
     }
 
@@ -252,26 +269,31 @@ public class Audio_Record extends Activity {
     }
 
 
-    class calcPTP extends  AsyncTask<Void,Double,Void> {
+    class calcPTP extends  AsyncTask<soundTransferParams,Double,Void> {
+
+        //public calcPTP()
 
         private short[] shortArr = null;
 
         @Override
         protected void onPreExecute() {
-            shortArr = sData;
 
         }
 
         @Override
-        protected Void doInBackground(Void... params) {
+        protected Void doInBackground(soundTransferParams... params) {
             // ++++ Search for peaks and troughs in shortArr. ++++
 
+            shortArr = params[0].returnArray();
             short localMin = 0;
             short localMax = 0;
             int ptpCount = 0;
             boolean peakTroughFlag = false;
             double Ptp = 0;
             double[] PtPvals = new double[30];
+
+
+            /*
             for (int i = 5; i < shortArr.length - 5; i++) {
                 // Look for troughs
                 if (!peakTroughFlag) {
@@ -307,7 +329,7 @@ public class Audio_Record extends Activity {
                     }
                 }
 
-            }
+            }*/
             return null;
         }
 

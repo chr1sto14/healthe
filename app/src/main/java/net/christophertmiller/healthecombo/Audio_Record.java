@@ -26,7 +26,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 public class Audio_Record extends Activity {
-    private static final int RECORDER_SAMPLERATE = 8000;
+    private static final int RECORDER_SAMPLERATE = 22050;
     private static final int RECORDER_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int RECORDER_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
 
@@ -68,7 +68,7 @@ public class Audio_Record extends Activity {
         enableButton(R.id.btnStart, !isRecording);
     }*/
 
-    int BufferElements2Rec = RECORDER_SAMPLERATE*2; // want to play 2048 (2K) since 2 bytes we use only 1024
+    int BufferElements2Rec = RECORDER_SAMPLERATE; // want to play 2048 (2K) since 2 bytes we use only 1024
     int BytesPerElement = 2; // 2 bytes in 16bit format
 
     private void startRecording() {
@@ -137,11 +137,11 @@ public class Audio_Record extends Activity {
                         new calcPTP().execute(sDataShort);
                     }
                 });
-                try {
+/*                try {
                     Thread.sleep(500);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                }
+                }*/
 
 
             }
@@ -195,67 +195,109 @@ public class Audio_Record extends Activity {
             shortArr = params[0].returnArray();
             int numSamples = shortArr.length;
             int numPeaks = 0;
+            boolean freqPeak = false;
 
 
 
-
-            for (int i = 5; i < numSamples - 5; i++) {
+            // Frequency
+            for (int i = 1000; i < numSamples - 1000; i++) {
                 // value > 5 values to left && value > 5 values to right
-                if (((shortArr[i] > shortArr[i - 1]) && (shortArr[i] > shortArr[i - 2]) &&
-                        (shortArr[i] > shortArr[i - 3]) && (shortArr[i] > shortArr[i - 4]) && (shortArr[i] > shortArr[i - 5])) &&
-                        ((shortArr[i] > shortArr[i + 1]) && (shortArr[i] > shortArr[i + 2]) &&
-                                (shortArr[i] > shortArr[i + 3]) && (shortArr[i] > shortArr[i + 4]) && (shortArr[i] > shortArr[i + 5]))) {
-                    numPeaks++;
+                for (int j = 1; j < 1000; j++) {
+                        if ((shortArr[i] > shortArr[i - j]) && (shortArr[i] > shortArr[i + j])) {
+                            freqPeak = true;
+                        } else {
+                            freqPeak = false;
+                            break;
+                        }
                 }
+
+                if (freqPeak) {
+                    numPeaks++;
+                    System.out.print(shortArr[i] + " ");
+                }
+
             }
 
             float numSecondsRecorded = (float)numSamples / (float)RECORDER_SAMPLERATE;
+            System.out.println(numPeaks);
             float frequency = numPeaks/numSecondsRecorded;
             publishProgress(frequency);
-            /*
-            short localMin = 0;
-            short localMax = 0;
-            int ptpCount = 0;
-            boolean peakTroughFlag = false;
-            double Ptp = 0;
-            double[] PtPvals = new double[30];
-
-            for (int i = 5; i < shortArr.length - 5; i++) {
-                // Look for troughs
-                if (!peakTroughFlag) {
-                    // value < 5 values to left && value < 5 values to right
-                    if (((shortArr[i] < shortArr[i - 1]) && (shortArr[i] < shortArr[i - 2]) &&
-                            (shortArr[i] < shortArr[i - 3]) && (shortArr[i] < shortArr[i - 4]) && (shortArr[i] < shortArr[i - 5])) &&
-                            ((shortArr[i] < shortArr[i + 1]) && (shortArr[i] < shortArr[i + 2]) &&
-                                    (shortArr[i] < shortArr[i + 3]) && (shortArr[i] < shortArr[i + 4]) && (shortArr[i] < shortArr[i + 5]))) {
-                        localMin = shortArr[i]; // capture the local min
-                        peakTroughFlag = !peakTroughFlag;
-                    }
-                } else if (peakTroughFlag) {
-                    // value > 5 values to left && value > 5 values to right
-                    if (((shortArr[i] > shortArr[i - 1]) && (shortArr[i] > shortArr[i - 2]) &&
-                            (shortArr[i] > shortArr[i - 3]) && (shortArr[i] > shortArr[i - 4]) && (shortArr[i] > shortArr[i - 5])) &&
-                            ((shortArr[i] > shortArr[i + 1]) && (shortArr[i] > shortArr[i + 2]) &&
-                                    (shortArr[i] > shortArr[i + 3]) && (shortArr[i] > shortArr[i + 4]) && (shortArr[i] > shortArr[i + 5]))) {
-                        localMax = shortArr[i]; // capture the local min
-                        PtPvals[ptpCount] = (double)(localMax - localMin);
-                        ptpCount++;
 
 
-                        // This will have to be removed for a heart beat signal
-                        if (ptpCount == 30) { // found 10 values, average values, reset ptpCount
-                            Ptp = calculateAverage(PtPvals);
-                            publishProgress(Ptp);
-                            ptpCount = 0;
+            // Amplitude
 
-
-                        }
-
-                        peakTroughFlag = !peakTroughFlag;
-                    }
-                }
-
-            }*/
+//            short localMin = 0;
+//            short localMax = 0;
+//            int ptpCount = 0;
+//            boolean peakTroughFlag = false;
+//            float Ptp = 0;
+//            float PtPvals;
+//            boolean troughCheck = false;
+//            boolean peakCheck = false;
+//
+//            for (int i = 100; i < shortArr.length - 100; i++) {
+//                // Look for troughs
+//                if (!peakTroughFlag) {
+//                    // value < 5 values to left && value < 5 values to right
+//                    for (int j = 1; j < 100; j++) {
+//                        if ((shortArr[i] < shortArr[i - j]) && (shortArr[i] < shortArr[i + j])) {
+//                            troughCheck = true;
+//                        } else {
+//                            troughCheck = false;
+//                            break;
+//                        }
+//                    }
+//
+//                    if (troughCheck) {
+//                        localMin = shortArr[i]; // capture the local min
+//                        peakTroughFlag = !peakTroughFlag;
+//                    }
+//                } else if (peakTroughFlag) {
+//                    for (int j = 1; j < 100; j++) {
+//                        if ((shortArr[i] > shortArr[i - j]) && (shortArr[i] > shortArr[i + j])) {
+//                            peakCheck = true;
+//                        } else {
+//                            peakCheck = false;
+//                            break;
+//                        }
+//                    }
+//
+//                    if (peakCheck) {
+//                        localMax = shortArr[i]; // capture the local min
+//
+//                        PtPvals = (float)(localMax - localMin);
+//                        publishProgress(PtPvals);
+//
+//
+//                        peakTroughFlag = !peakTroughFlag;
+//
+//                    }
+//                    // value > 5 values to left && value > 5 values to right
+////                    if (((shortArr[i] > shortArr[i - 1]) && (shortArr[i] > shortArr[i - 2]) &&
+////                            (shortArr[i] > shortArr[i - 3]) && (shortArr[i] > shortArr[i - 4]) && (shortArr[i] > shortArr[i - 5])) &&
+////                            ((shortArr[i] > shortArr[i + 1]) && (shortArr[i] > shortArr[i + 2]) &&
+////                                    (shortArr[i] > shortArr[i + 3]) && (shortArr[i] > shortArr[i + 4]) && (shortArr[i] > shortArr[i + 5]))) {
+////                        localMax = shortArr[i]; // capture the local min
+////                        PtPvals[ptpCount] = (float)(localMax - localMin);
+////                        System.out.print(PtPvals[ptpCount] + " ");
+////                        ptpCount++;
+////
+////
+////                        // This will have to be removed for a heart beat signal
+////                        if (ptpCount == 30) { // found 10 values, average values, reset ptpCount
+////                            System.out.println();
+////                            Ptp = calculateAverage(PtPvals);
+////                            publishProgress(Ptp);
+////                            ptpCount = 0;
+////
+////
+////                        }
+////
+////                        peakTroughFlag = !peakTroughFlag;
+//                    }
+//                }
+//
+//            }
             return null;
         }
 
@@ -271,9 +313,9 @@ public class Audio_Record extends Activity {
     }
 
     // helper method to calculate Integer[] average
-    private double calculateAverage(double[] marks) {
-        double sum = 0;
-        for (double mark : marks) {
+    private float calculateAverage(float[] marks) {
+        float sum = 0;
+        for (float mark : marks) {
             sum += mark;
         }
         return sum / marks.length;

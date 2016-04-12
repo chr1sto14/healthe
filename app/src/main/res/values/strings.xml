@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Healthecombo</string>
+    <string name="defaultString">"0"</string>
 </resources>

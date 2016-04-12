@@ -37,7 +37,11 @@ public class Audio_Record extends Activity {
     private Thread calculatingPTP = null;
     private boolean isRecording = false;
     private boolean mStartPlaying = false;
-    private TextView textBox = null;
+    private TextView textFreq = null;
+    private TextView textPtp = null;
+
+    float[] averageHrArray = new float[5];
+    int hrCount = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -51,24 +55,17 @@ public class Audio_Record extends Activity {
                 RECORDER_CHANNELS, RECORDER_AUDIO_ENCODING);
 
 
-        // set textbox
-        textBox = (TextView) findViewById(R.id.textPtp);
+        // set frequency and amplitude textboxes
+        textFreq = (TextView) findViewById(R.id.textFreq);
+        textPtp = (TextView) findViewById(R.id.amplitude);
 
     }
 
     private void setButtonHandlers() {
-        ((ImageView) findViewById(R.id.btnStart)).setOnClickListener(btnClick);
+        (findViewById(R.id.btnStart)).setOnClickListener(btnClick);
     }
 
-   /* private void enableButton(int id, boolean isEnable) {
-        ((ImageView) findViewById(id)).setEnabled(isEnable);
-    }*/
-
-/*    private void enableButtons(boolean isRecording) {
-        enableButton(R.id.btnStart, !isRecording);
-    }*/
-
-    int BufferElements2Rec = RECORDER_SAMPLERATE; // want to play 2048 (2K) since 2 bytes we use only 1024
+    int BufferElements2Rec = RECORDER_SAMPLERATE*2; // want to play 2048 (2K) since 2 bytes we use only 1024
     int BytesPerElement = 2; // 2 bytes in 16bit format
 
     private void startRecording() {
@@ -134,14 +131,15 @@ public class Audio_Record extends Activity {
                 Audio_Record.this.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        new calcFreq().execute(sDataShort);
                         new calcPTP().execute(sDataShort);
                     }
                 });
-/*                try {
-                    Thread.sleep(500);
+                try {
+                    Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
-                }*/
+                }
 
 
             }
@@ -150,6 +148,8 @@ public class Audio_Record extends Activity {
             } catch (IOException e) {
                 e.printStackTrace();
             }*/
+
+
         }
     }
 
@@ -194,116 +194,91 @@ public class Audio_Record extends Activity {
 
             shortArr = params[0].returnArray();
             int numSamples = shortArr.length;
-            int numPeaks = 0;
-            boolean freqPeak = false;
 
+            int searchSize = 3675; // This should be equal to have the wavelength of the incoming frequency
+            int searchPositionLeft, searchPositionRight;
+            int searchPositionLeftMax = searchSize;
+            int searchPositionRightMax = searchSize;
+            // Amplitude
 
+            short localMin = 0;
+            short localMax;
+            int ptpCount = 0;
+            boolean peakTroughFlag = false;
+            float Ptp = 0;
+            float PtPvals;
+            boolean troughCheck = false;
+            boolean peakCheck = false;
 
-            // Frequency
-            for (int i = 1000; i < numSamples - 1000; i++) {
-                // value > 5 values to left && value > 5 values to right
-                for (int j = 1; j < 1000; j++) {
-                        if ((shortArr[i] > shortArr[i - j]) && (shortArr[i] > shortArr[i + j])) {
-                            freqPeak = true;
-                        } else {
-                            freqPeak = false;
-                            break;
-                        }
+            for (int i = 1; i < numSamples - 1; i++) {
+
+                if (i < searchSize) {
+                    searchPositionLeftMax = i - 1;
+                    searchPositionRightMax = searchSize - 1;
+                } else if ((i > searchSize) && (i < (numSamples - searchSize))) {
+                    searchPositionLeftMax = searchSize - 1;
+                    searchPositionRightMax = searchSize - 1;
+                } else if (i > (numSamples - searchSize)) {
+                    searchPositionLeftMax = searchSize - 1;
+                    searchPositionRightMax = numSamples - i - 1;
                 }
 
-                if (freqPeak) {
-                    numPeaks++;
-                    System.out.print(shortArr[i] + " ");
+                // Look for troughs
+                if (!peakTroughFlag) {
+                    //simultaneous for-loop
+                    for (searchPositionLeft = 1, searchPositionRight = 1; (searchPositionLeft <= searchPositionLeftMax || searchPositionRight <= searchPositionRightMax); searchPositionLeft++, searchPositionRight++) {
+                        //ensure that no index out of bounds are thrown
+                        if (searchPositionLeft > searchPositionLeftMax) { searchPositionLeft = searchPositionLeftMax; }
+                        if (searchPositionRight > searchPositionRightMax) { searchPositionRight = searchPositionRightMax; }
+
+                        // Compare values to left and right of i position
+                        if ((shortArr[i] < shortArr[i - searchPositionLeft]) && (shortArr[i] < shortArr[i + searchPositionRight])) {
+                            troughCheck = true; //peak found for this i position
+                        } else {
+                            troughCheck = false; // doesn't match, so move to next point
+                            break;
+                        }
+                    }
+
+                    if (troughCheck) {
+                        localMin = shortArr[i]; // capture the local min
+                        peakTroughFlag = !peakTroughFlag;
+                    }
+                }
+                // Look for peaks
+                else if (peakTroughFlag) {
+                    //simultaneous for-loop
+                    for (searchPositionLeft = 1, searchPositionRight = 1; (searchPositionLeft <= searchPositionLeftMax || searchPositionRight <= searchPositionRightMax); searchPositionLeft++, searchPositionRight++) {
+                        //ensure that no index out of bounds are thrown
+                        if (searchPositionLeft > searchPositionLeftMax) { searchPositionLeft = searchPositionLeftMax; }
+                        if (searchPositionRight > searchPositionRightMax) { searchPositionRight = searchPositionRightMax; }
+
+                        // Compare values to left and right of i position
+                        if ((shortArr[i] < shortArr[i - searchPositionLeft]) && (shortArr[i] < shortArr[i + searchPositionRight])) {
+                            peakCheck = true; //peak found for this i position
+                        } else {
+                            peakCheck = false; // doesn't match, so move to next point
+                            break;
+                        }
+                    }
+
+                    if (peakCheck) {
+                        localMax = shortArr[i]; // capture the local max
+                        PtPvals = (float)(localMax - localMin);
+                        publishProgress(PtPvals);
+
+                        peakTroughFlag = !peakTroughFlag;
+
+                    }
                 }
 
             }
-
-            float numSecondsRecorded = (float)numSamples / (float)RECORDER_SAMPLERATE;
-            System.out.println(numPeaks);
-            float frequency = numPeaks/numSecondsRecorded;
-            publishProgress(frequency);
-
-
-            // Amplitude
-
-//            short localMin = 0;
-//            short localMax = 0;
-//            int ptpCount = 0;
-//            boolean peakTroughFlag = false;
-//            float Ptp = 0;
-//            float PtPvals;
-//            boolean troughCheck = false;
-//            boolean peakCheck = false;
-//
-//            for (int i = 100; i < shortArr.length - 100; i++) {
-//                // Look for troughs
-//                if (!peakTroughFlag) {
-//                    // value < 5 values to left && value < 5 values to right
-//                    for (int j = 1; j < 100; j++) {
-//                        if ((shortArr[i] < shortArr[i - j]) && (shortArr[i] < shortArr[i + j])) {
-//                            troughCheck = true;
-//                        } else {
-//                            troughCheck = false;
-//                            break;
-//                        }
-//                    }
-//
-//                    if (troughCheck) {
-//                        localMin = shortArr[i]; // capture the local min
-//                        peakTroughFlag = !peakTroughFlag;
-//                    }
-//                } else if (peakTroughFlag) {
-//                    for (int j = 1; j < 100; j++) {
-//                        if ((shortArr[i] > shortArr[i - j]) && (shortArr[i] > shortArr[i + j])) {
-//                            peakCheck = true;
-//                        } else {
-//                            peakCheck = false;
-//                            break;
-//                        }
-//                    }
-//
-//                    if (peakCheck) {
-//                        localMax = shortArr[i]; // capture the local min
-//
-//                        PtPvals = (float)(localMax - localMin);
-//                        publishProgress(PtPvals);
-//
-//
-//                        peakTroughFlag = !peakTroughFlag;
-//
-//                    }
-//                    // value > 5 values to left && value > 5 values to right
-////                    if (((shortArr[i] > shortArr[i - 1]) && (shortArr[i] > shortArr[i - 2]) &&
-////                            (shortArr[i] > shortArr[i - 3]) && (shortArr[i] > shortArr[i - 4]) && (shortArr[i] > shortArr[i - 5])) &&
-////                            ((shortArr[i] > shortArr[i + 1]) && (shortArr[i] > shortArr[i + 2]) &&
-////                                    (shortArr[i] > shortArr[i + 3]) && (shortArr[i] > shortArr[i + 4]) && (shortArr[i] > shortArr[i + 5]))) {
-////                        localMax = shortArr[i]; // capture the local min
-////                        PtPvals[ptpCount] = (float)(localMax - localMin);
-////                        System.out.print(PtPvals[ptpCount] + " ");
-////                        ptpCount++;
-////
-////
-////                        // This will have to be removed for a heart beat signal
-////                        if (ptpCount == 30) { // found 10 values, average values, reset ptpCount
-////                            System.out.println();
-////                            Ptp = calculateAverage(PtPvals);
-////                            publishProgress(Ptp);
-////                            ptpCount = 0;
-////
-////
-////                        }
-////
-////                        peakTroughFlag = !peakTroughFlag;
-//                    }
-//                }
-//
-//            }
             return null;
         }
 
         @Override
         protected void onProgressUpdate(Float... values) {
-            textBox.setText(String.valueOf((int)((float)(values[0]))));
+            textPtp.setText(String.valueOf(((float)(values[0]))));
         }
 
         @Override
@@ -312,6 +287,87 @@ public class Audio_Record extends Activity {
         }
     }
 
+    class calcFreq extends  AsyncTask<soundTransferParams,Float,Void> {
+
+        //public calcFreq()
+
+        private short[] shortArr = null;
+
+        @Override
+        protected void onPreExecute() {
+
+        }
+
+        @Override
+        protected Void doInBackground(soundTransferParams... params) {
+            // ++++ Search for peaks and troughs in shortArr. ++++
+
+            shortArr = params[0].returnArray();
+            int numSamples = shortArr.length;
+
+
+            int numPeaks = 0;
+            boolean freqPeak = false;
+
+            int searchSize = 3675; // This should be equal to have the wavelength of the incoming frequency
+            int searchPositionLeft, searchPositionRight;
+            int searchPositionLeftMax = searchSize;
+            int searchPositionRightMax = searchSize;
+
+            // Frequency
+            for (int i = 1; i < numSamples - 1; i++) {
+                if (i < searchSize) {
+                    searchPositionLeftMax = i - 1;
+                    searchPositionRightMax = searchSize - 1;
+                } else if ((i > searchSize) && (i < (numSamples - searchSize))) {
+                    searchPositionLeftMax = searchSize - 1;
+                    searchPositionRightMax = searchSize - 1;
+                } else if (i > (numSamples - searchSize)) {
+                    searchPositionLeftMax = searchSize - 1;
+                    searchPositionRightMax = numSamples - i - 1;
+                }
+
+                //simultaneous for-loop
+                for (searchPositionLeft = 1, searchPositionRight = 1; (searchPositionLeft <= searchPositionLeftMax || searchPositionRight <= searchPositionRightMax); searchPositionLeft++, searchPositionRight++) {
+                    //ensure that no index out of bounds are called
+                    if (searchPositionLeft > searchPositionLeftMax) { searchPositionLeft = searchPositionLeftMax; }
+                    if (searchPositionRight > searchPositionRightMax) { searchPositionRight = searchPositionRightMax; }
+
+                    // Compare values to left and right of i position
+                    if ((shortArr[i] > shortArr[i - searchPositionLeft]) && (shortArr[i] > shortArr[i + searchPositionRight]) && (shortArr[i] > 120)) { // 120 value to prevent noise
+                        freqPeak = true; //peak found for this i position
+                    } else {
+                        freqPeak = false; // doesn't match, so move to next point
+                        break;
+                    }
+                }
+
+                if (freqPeak) { // peak found, so iterate peaks
+                    numPeaks++;
+                    System.out.print(shortArr[i] + " ");
+                }
+
+            }
+
+            if (hrCount < 4 ) { hrCount++; } else { hrCount = 0; } // iterate HR count
+            float numSecondsRecorded = (float)numSamples / (float)RECORDER_SAMPLERATE;
+            System.out.println("Num peaks: " + numPeaks);
+            float frequency = numPeaks/numSecondsRecorded;
+            averageHrArray[hrCount] = frequency;
+            publishProgress(calculateAverage(averageHrArray));
+
+            return null;
+        }
+
+        @Override
+        protected void onProgressUpdate(Float... values) {
+            textFreq.setText(String.valueOf(((float)(values[0]))));
+        }
+
+        @Override
+        protected void onPostExecute(Void result) {
+        }
+    }
     // helper method to calculate Integer[] average
     private float calculateAverage(float[] marks) {
         float sum = 0;
@@ -328,14 +384,16 @@ public class Audio_Record extends Activity {
             switch (v.getId()) {
                 case R.id.btnStart: {
                     if (!isRecording) {
-                        //enableButtons(true);
-                        Toast.makeText(getApplicationContext(), "Recording raw audio.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Recording pulse signal", Toast.LENGTH_SHORT).show();
                         startRecording();
                         break;
                     } else {
                         //enableButtons(false);
-                        Toast.makeText(getApplicationContext(), "Audio saved.", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(getApplicationContext(), "Recording stopped.", Toast.LENGTH_SHORT).show();
                         stopRecording();
+
+                        textPtp.setText("0");
+                        textFreq.setText("0");
                         break;
                     }
 

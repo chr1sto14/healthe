@@ -99,7 +99,7 @@
                     android:textColor="#FFDEAD"
                     android:paddingTop="@dimen/activity_vertical_margin"
                     android:id="@+id/amplitude"
-                    android:text="0.0"
+                    android:text="@string/defaultString"
                     android:textSize="24dp"/>
                 <TextView
                     android:layout_width="wrap_content"

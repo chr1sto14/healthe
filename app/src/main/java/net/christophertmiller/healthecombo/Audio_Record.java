@@ -42,6 +42,7 @@ public class Audio_Record extends Activity {
 
     float[] averageHrArray = new float[5];
     int hrCount = 0;
+    int ptpCount = 0;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -65,7 +66,7 @@ public class Audio_Record extends Activity {
         (findViewById(R.id.btnStart)).setOnClickListener(btnClick);
     }
 
-    int BufferElements2Rec = RECORDER_SAMPLERATE*2; // want to play 2048 (2K) since 2 bytes we use only 1024
+    int BufferElements2Rec = RECORDER_SAMPLERATE*4; // want to play 2048 (2K) since 2 bytes we use only 1024
     int BytesPerElement = 2; // 2 bytes in 16bit format
 
     private void startRecording() {
@@ -114,6 +115,8 @@ public class Audio_Record extends Activity {
             while (isRecording) {
                 // gets the voice output from microphone to byte format
 
+
+
                 recorder.read(sData, 0, BufferElements2Rec);
                 //System.out.println("Short writing to file " + sData.toString());
                 // // writes the data to file from buffer
@@ -125,8 +128,21 @@ public class Audio_Record extends Activity {
                     e.printStackTrace();
                 }*/
 
+
+
+                // digital filter ?
+
+                double smoothing = 15;
+                double value = sData[0];
+                for (int i = 1; i < sData.length; i++) {
+                    double currentValue = sData[i];
+                    value += (currentValue - value) / smoothing;
+                    sData[i] = (short)value;
+                }
+
                 // update the UI
                 sDataShort = new soundTransferParams(sData);
+
 
                 Audio_Record.this.runOnUiThread(new Runnable() {
                     @Override
@@ -136,7 +152,7 @@ public class Audio_Record extends Activity {
                     }
                 });
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(500);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -195,7 +211,7 @@ public class Audio_Record extends Activity {
             shortArr = params[0].returnArray();
             int numSamples = shortArr.length;
 
-            int searchSize = 3675; // This should be equal to have the wavelength of the incoming frequency
+            int searchSize = 4594; // This should be equal to have the wavelength of the incoming frequency
             int searchPositionLeft, searchPositionRight;
             int searchPositionLeftMax = searchSize;
             int searchPositionRightMax = searchSize;
@@ -205,8 +221,7 @@ public class Audio_Record extends Activity {
             short localMax;
             int ptpCount = 0;
             boolean peakTroughFlag = false;
-            float Ptp = 0;
-            float PtPvals;
+            float[] PtPvals = new float[5];
             boolean troughCheck = false;
             boolean peakCheck = false;
 
@@ -263,9 +278,10 @@ public class Audio_Record extends Activity {
                     }
 
                     if (peakCheck) {
+                        if (ptpCount < 4 ) { ptpCount++; } else { ptpCount = 0; } // iterate HR count
                         localMax = shortArr[i]; // capture the local max
-                        PtPvals = (float)(localMax - localMin);
-                        publishProgress(PtPvals);
+                        PtPvals[ptpCount] = (float) (localMax - localMin);
+                        publishProgress(Math.abs(calculateAverage(PtPvals)/Float.MAX_VALUE));
 
                         peakTroughFlag = !peakTroughFlag;
 
@@ -309,7 +325,7 @@ public class Audio_Record extends Activity {
             int numPeaks = 0;
             boolean freqPeak = false;
 
-            int searchSize = 3675; // This should be equal to have the wavelength of the incoming frequency
+            int searchSize = 4594; // This should be equal to have the wavelength of the incoming frequency
             int searchPositionLeft, searchPositionRight;
             int searchPositionLeftMax = searchSize;
             int searchPositionRightMax = searchSize;
@@ -334,7 +350,7 @@ public class Audio_Record extends Activity {
                     if (searchPositionRight > searchPositionRightMax) { searchPositionRight = searchPositionRightMax; }
 
                     // Compare values to left and right of i position
-                    if ((shortArr[i] > shortArr[i - searchPositionLeft]) && (shortArr[i] > shortArr[i + searchPositionRight]) && (shortArr[i] > 120)) { // 120 value to prevent noise
+                    if ((shortArr[i] > shortArr[i - searchPositionLeft]) && (shortArr[i] > shortArr[i + searchPositionRight]) && (shortArr[i] > 120)) { // 120 value to prevent noise 0.05*Short.MAX_VALUE
                         freqPeak = true; //peak found for this i position
                     } else {
                         freqPeak = false; // doesn't match, so move to next point
@@ -404,9 +420,12 @@ public class Audio_Record extends Activity {
 
    @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK) {
-            finish();
-        }
-        return super.onKeyDown(keyCode, event);
+       switch (keyCode) {
+           case KeyEvent.KEYCODE_VOLUME_DOWN:
+               return true;
+           case KeyEvent.KEYCODE_VOLUME_UP:
+               return true;
+       }
+       return super.onKeyDown(keyCode, event);
     }
 }
